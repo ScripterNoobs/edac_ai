@@ -1,10 +1,10 @@
 # edac_ai
 
-This repository contains a lightweight C++17 HTTP API and a simple HTML client for a multimodal assistant with text and audio endpoints.
+This repository contains a lightweight C++17 HTTP API and a Grok-styled HTML client for a multimodal assistant with text and audio endpoints.
 
 ## Repository layout
-- `cpp/`: C++17 HTTP server exposing chat, audio, health, and session summary endpoints.
-- `html/`: Static web client to exercise chat and audio flows against the API.
+- `cpp/`: C++17 HTTP server exposing chat, audio, health, session summary, diagnostics, and tool catalog endpoints.
+- `html/`: Static web client to exercise chat, audio, session lookup, diagnostics, and tool flows against the API.
 
 ## Building and running the C++ API
 1. Ensure a C++17 toolchain and CMake (>=3.16) are installed.
@@ -19,10 +19,12 @@ This repository contains a lightweight C++17 HTTP API and a simple HTML client f
    ./build/edac_api
    ```
 4. Endpoints:
-   - `POST /chat` — JSON body with `message` and optional `session_id`/`intent_debug` for responses and detected intents.
-   - `POST /audio` — JSON body with base64-encoded `audio` and optional flags for transcription/summary.
+   - `POST /api/chat` — JSON body with `text`, optional `session_id`, `mode`, and `stream` for structured replies, streaming chunks, intent label, tool suggestions, and recent turns.
+   - `POST /api/audio/analyze` — JSON body with base64-encoded `audio_b64` and optional `transcript_hint` for preview + confidence response.
    - `GET /health` — simple readiness probe.
-   - `GET /session/{id}` — retrieve the accumulated session summary.
+   - `GET /api/session/{id}` — retrieve accumulated summary and recent turns for the session.
+   - `GET /api/tools` — static catalog of suggested tools.
+   - `GET /api/diagnostics` — lightweight status + endpoint list for dashboards.
 
 ## Running the HTML demo
 1. Serve the `html/` directory with any static server (for example, Python 3):
@@ -31,7 +33,7 @@ This repository contains a lightweight C++17 HTTP API and a simple HTML client f
    python3 -m http.server 8000
    ```
 2. Open `http://localhost:8000` in a browser.
-3. Use the chat box or audio upload form to interact with the running API at `http://localhost:8080`.
+3. Use the chat, audio, oturum (session), araçlar (tools), and durum (diagnostics) panels in the left menu to interact with the running API at `http://localhost:8080`.
 
 ## Downloading the code from GitHub
 If you are viewing the repository on GitHub and want to download everything as a ZIP (like the screenshot with the green **Code** button):

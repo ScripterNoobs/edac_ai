@@ -18,7 +18,7 @@
 
 namespace {
 constexpr int kDefaultPort = 8080;
-constexpr int kBacklog = 16;
+constexpr int kBacklog = 32;
 constexpr size_t kBufferSize = 8192;
 
 std::string now_iso8601() {
@@ -193,19 +193,49 @@ bool find_json_bool(const std::string &body, const std::string &key, bool defaul
     return default_value;
 }
 
+struct SessionData {
+    std::string summary;
+    std::vector<std::string> timeline;
+};
+
 class SessionStore {
    public:
-    std::string get_or_create_summary(const std::string &session_id, const std::string &user_input) {
+    std::string add_turn(const std::string &session_id, const std::string &user_input) {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto &summary = sessions_[session_id];
-        if (!summary.empty()) summary += " | ";
-        summary += user_input.substr(0, 120);
-        return summary;
+        auto &session = sessions_[session_id];
+        session.timeline.push_back(user_input);
+        if (!session.summary.empty()) session.summary += " | ";
+        session.summary += user_input.substr(0, 160);
+        return session.summary;
+    }
+
+    SessionData get(const std::string &session_id) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = sessions_.find(session_id);
+        if (it == sessions_.end()) return {};
+        return it->second;
+    }
+
+    std::vector<std::string> recent(const std::string &session_id, size_t limit = 6) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = sessions_.find(session_id);
+        if (it == sessions_.end()) return {};
+        const auto &timeline = it->second.timeline;
+        if (timeline.size() <= limit) return timeline;
+        return std::vector<std::string>(timeline.end() - limit, timeline.end());
+    }
+
+    std::vector<std::string> session_ids() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::vector<std::string> ids;
+        ids.reserve(sessions_.size());
+        for (const auto &kv : sessions_) ids.push_back(kv.first);
+        return ids;
     }
 
    private:
-    std::unordered_map<std::string, std::string> sessions_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
+    std::unordered_map<std::string, SessionData> sessions_;
 };
 
 class InferenceEngine {
@@ -214,6 +244,7 @@ class InferenceEngine {
         if (text.find("ses") != std::string::npos || text.find("audio") != std::string::npos) return "speech";
         if (text.find("yardım") != std::string::npos) return "support";
         if (text.find("hava") != std::string::npos) return "weather";
+        if (text.find("kod") != std::string::npos || text.find("api") != std::string::npos) return "development";
         return "general";
     }
 
@@ -236,6 +267,21 @@ class InferenceEngine {
         }
         if (chunks.empty()) chunks.push_back("boş istek");
         return chunks;
+    }
+
+    std::vector<std::string> suggest_tools(const std::string &intent) const {
+        if (intent == "weather") return {"get_weather", "forecast_5day"};
+        if (intent == "speech") return {"transcribe", "classify_audio"};
+        if (intent == "development") return {"run_tests", "deploy_preview", "lint_source"};
+        return {"search_docs", "semantic_answer"};
+    }
+
+    std::string summarize_intent(const std::string &intent) const {
+        if (intent == "weather") return "Anlık hava durumu ve tahmin";
+        if (intent == "speech") return "Ses analizi ve komut çıkarımı";
+        if (intent == "development") return "Kod, API ve hata ayıklama";
+        if (intent == "support") return "Destek ve yönlendirme";
+        return "Genel sohbet";
     }
 
     std::string describe_audio(const std::string &base64_audio, const std::string &transcript_hint) const {
@@ -265,26 +311,53 @@ void handle_chat(int client_fd, const HttpRequest &req, InferenceEngine &engine,
     const std::string session_id = find_json_value(req.body, "session_id").empty() ? "default" : find_json_value(req.body, "session_id");
     const bool stream = find_json_bool(req.body, "stream", false);
 
-    std::string summary = store.get_or_create_summary(session_id, text);
+    std::string summary = store.add_turn(session_id, text);
     const std::string intent = engine.detect_intent(text);
+    const auto tools = engine.suggest_tools(intent);
     if (stream) {
         auto chunks = engine.streaming_chunks(engine.respond(text, mode.empty() ? "text" : mode));
         std::ostringstream oss;
         oss << "{\"session_id\":\"" << json_escape(session_id) << "\",";
         oss << "\"intent\":\"" << json_escape(intent) << "\",";
+        oss << "\"intent_label\":\"" << json_escape(engine.summarize_intent(intent)) << "\",";
         oss << "\"streaming\":[";
         for (size_t i = 0; i < chunks.size(); ++i) {
             if (i > 0) oss << ",";
             oss << "\"" << json_escape(chunks[i]) << "\"";
         }
-        oss << "],\"summary\":\"" << json_escape(summary) << "\"}";
+        oss << "],\"summary\":\"" << json_escape(summary) << "\",";
+        oss << "\"tools\":[";
+        for (size_t i = 0; i < tools.size(); ++i) {
+            if (i > 0) oss << ",";
+            oss << "\"" << json_escape(tools[i]) << "\"";
+        }
+        oss << "],\"turns\":[";
+        auto timeline = store.recent(session_id);
+        for (size_t i = 0; i < timeline.size(); ++i) {
+            if (i > 0) oss << ",";
+            oss << "\"" << json_escape(timeline[i]) << "\"";
+        }
+        oss << "]}";
         write_response(client_fd, 200, oss.str());
     } else {
         std::ostringstream oss;
         oss << "{\"session_id\":\"" << json_escape(session_id) << "\",";
         oss << "\"intent\":\"" << json_escape(intent) << "\",";
+        oss << "\"intent_label\":\"" << json_escape(engine.summarize_intent(intent)) << "\",";
         oss << "\"reply\":\"" << json_escape(engine.respond(text, mode.empty() ? "text" : mode)) << "\",";
-        oss << "\"summary\":\"" << json_escape(summary) << "\"}";
+        oss << "\"summary\":\"" << json_escape(summary) << "\",";
+        oss << "\"tools\":[";
+        for (size_t i = 0; i < tools.size(); ++i) {
+            if (i > 0) oss << ",";
+            oss << "\"" << json_escape(tools[i]) << "\"";
+        }
+        oss << "],\"turns\":[";
+        auto timeline = store.recent(session_id);
+        for (size_t i = 0; i < timeline.size(); ++i) {
+            if (i > 0) oss << ",";
+            oss << "\"" << json_escape(timeline[i]) << "\"";
+        }
+        oss << "]}";
         write_response(client_fd, 200, oss.str());
     }
 }
@@ -299,7 +372,47 @@ void handle_audio(int client_fd, const HttpRequest &req, InferenceEngine &engine
     const std::string summary = engine.describe_audio(audio, transcript);
     std::ostringstream oss;
     oss << "{\"audio_preview\":\"" << json_escape(audio.substr(0, 24)) << "...\",";
-    oss << "\"analysis\":\"" << json_escape(summary) << "\"}";
+    oss << "\"analysis\":\"" << json_escape(summary) << "\",";
+    oss << "\"confidence\":0.62}";
+    write_response(client_fd, 200, oss.str());
+}
+
+void handle_session_summary(int client_fd, const std::string &session_id, SessionStore &store) {
+    if (session_id.empty()) {
+        write_response(client_fd, 400, "{\"error\":\"session_id eksik\"}");
+        return;
+    }
+    SessionData data = store.get(session_id);
+    std::ostringstream oss;
+    oss << "{\"session_id\":\"" << json_escape(session_id) << "\",";
+    oss << "\"summary\":\"" << json_escape(data.summary) << "\",";
+    oss << "\"turns\":[";
+    for (size_t i = 0; i < data.timeline.size(); ++i) {
+        if (i > 0) oss << ",";
+        oss << "\"" << json_escape(data.timeline[i]) << "\"";
+    }
+    oss << "],\"available_sessions\":[";
+    auto ids = store.session_ids();
+    for (size_t i = 0; i < ids.size(); ++i) {
+        if (i > 0) oss << ",";
+        oss << "\"" << json_escape(ids[i]) << "\"";
+    }
+    oss << "]}";
+    write_response(client_fd, 200, oss.str());
+}
+
+void handle_tools(int client_fd) {
+    const std::string payload =
+        "{\"tools\":[{\"name\":\"transcribe\",\"description\":\"Ses dönüştürme\"},{\"name\":\"classify_audio\",\"description\":\"Hızlı etiketleme\"},{\"name\":\"search_docs\",\"description\":\"Belgelerden yanıt bulur\"},{\"name\":\"run_tests\",\"description\":\"Kod sağlığını ölçer\"}],\"version\":\"2025.1\"}";
+    write_response(client_fd, 200, payload);
+}
+
+void handle_diagnostics(int client_fd, SessionStore &store) {
+    std::ostringstream oss;
+    oss << "{\"status\":\"ok\",\"uptime_hint\":\"hafif\",";
+    oss << "\"sessions\":" << store.session_ids().size() << ",";
+    oss << "\"endpoints\":[\"/api/chat\",\"/api/audio/analyze\",\"/api/session/{id}\",\"/api/tools\"],";
+    oss << "\"timestamp\":\"" << now_iso8601() << "\"}";
     write_response(client_fd, 200, oss.str());
 }
 
@@ -312,6 +425,12 @@ void handle_client(int client_fd, InferenceEngine &engine, SessionStore &store) 
 
     if (req.method == "GET" && req.path == "/health") {
         handle_health(client_fd);
+    } else if (req.method == "GET" && req.path == "/api/tools") {
+        handle_tools(client_fd);
+    } else if (req.method == "GET" && req.path.rfind("/api/session/", 0) == 0) {
+        handle_session_summary(client_fd, req.path.substr(std::string("/api/session/").size()), store);
+    } else if (req.method == "GET" && req.path == "/api/diagnostics") {
+        handle_diagnostics(client_fd, store);
     } else if (req.method == "POST" && req.path == "/api/chat") {
         handle_chat(client_fd, req, engine, store);
     } else if (req.method == "POST" && req.path == "/api/audio/analyze") {

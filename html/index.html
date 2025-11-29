@@ -7,63 +7,177 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
+  <aside class="sidebar">
     <div class="brand">
-      <span class="logo">EDAC</span>
-      <div>
-        <div class="title">EDAC AI</div>
-        <div class="subtitle">Sesli ve metin tabanlı etkileşim API demosu</div>
-      </div>
+      <div class="logo">EDAC</div>
+      <div class="title">EDAC AI Studio</div>
     </div>
-    <div class="status" id="healthStatus">Bekleniyor...</div>
-  </header>
+    <nav>
+      <button class="nav-btn active" data-target="chatPanel">Chat</button>
+      <button class="nav-btn" data-target="audioPanel">Audio</button>
+      <button class="nav-btn" data-target="sessionPanel">Oturumlar</button>
+      <button class="nav-btn" data-target="toolsPanel">Araçlar</button>
+      <button class="nav-btn" data-target="diagnosticsPanel">Durum</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="pill" id="healthStatus">Bekleniyor...</div>
+      <small>Grok benzeri hızlı menü</small>
+    </div>
+  </aside>
 
-  <main>
-    <section class="card">
-      <h2>Metin / Chat</h2>
-      <form id="chatForm">
-        <label for="sessionId">Oturum ID</label>
-        <input id="sessionId" name="sessionId" placeholder="örn. demo-1" />
+  <div class="content">
+    <header>
+      <div>
+        <p class="eyebrow">Çok modlu yardımcı</p>
+        <h1>Sesli ve metinli komutlar için EDAC AI</h1>
+        <p class="lede">C++ API + HTML deneyimi. Anlık mod geçişleri, akış ve araç önerileri.</p>
+      </div>
+      <div class="badges">
+        <span class="badge">v2025</span>
+        <span class="badge muted">localhost:8080</span>
+      </div>
+    </header>
 
-        <label for="inputText">Soru veya komut</label>
-        <textarea id="inputText" name="inputText" rows="4" placeholder="Hava nasıl, alarm kur, vb."></textarea>
-
-        <div class="row">
-          <label for="mode">Mod</label>
-          <select id="mode" name="mode">
-            <option value="text">Metin</option>
-            <option value="speech">Ses</option>
-            <option value="control">Kontrol</option>
-          </select>
-          <label class="checkbox">
-            <input type="checkbox" id="stream" name="stream" />
-            <span>Akış (stream)</span>
-          </label>
+    <main>
+      <section class="panel show" id="chatPanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Chat</p>
+              <h2>Metin akışı ve niyet çıkarsama</h2>
+            </div>
+            <div class="chip">Akış destekli</div>
+          </div>
+          <form id="chatForm" class="stack">
+            <div class="row">
+              <label for="sessionId">Oturum ID</label>
+              <input id="sessionId" name="sessionId" placeholder="örn. studio-42" />
+            </div>
+            <div class="row">
+              <label for="inputText">Soru veya komut</label>
+              <textarea id="inputText" name="inputText" rows="4" placeholder="Hava nasıl, alarm kur, Grok tarzı esprili cevap..." ></textarea>
+            </div>
+            <div class="row two-cols">
+              <div>
+                <label for="mode">Mod</label>
+                <select id="mode" name="mode">
+                  <option value="text">Metin</option>
+                  <option value="speech">Ses</option>
+                  <option value="control">Kontrol</option>
+                </select>
+              </div>
+              <label class="checkbox">
+                <input type="checkbox" id="stream" name="stream" />
+                <span>Akış (stream)</span>
+              </label>
+            </div>
+            <button type="submit">Gönder</button>
+          </form>
+          <div class="result-block">
+            <div class="result-head">
+              <span>Yanıt</span><span class="pill muted" id="intentLabel">intent?</span>
+            </div>
+            <pre id="chatResult" class="result">Yanıtlar burada görünecek.</pre>
+          </div>
         </div>
+      </section>
 
-        <button type="submit">Gönder</button>
-      </form>
-      <pre id="chatResult" class="result">Yanıtlar burada görünecek.</pre>
-    </section>
+      <section class="panel" id="audioPanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Audio</p>
+              <h2>Waveform yükle, sahne analizi al</h2>
+            </div>
+            <div class="chip">beta</div>
+          </div>
+          <form id="audioForm" class="stack">
+            <div class="row">
+              <label for="audioFile">Ses yükle</label>
+              <input id="audioFile" name="audioFile" type="file" accept="audio/*" />
+            </div>
+            <div class="row">
+              <label for="transcript">Metin ipucu (opsiyonel)</label>
+              <input id="transcript" name="transcript" placeholder="Konu veya duyduğunuz kelimeler" />
+            </div>
+            <button type="submit">Analiz et</button>
+          </form>
+          <div class="result-block">
+            <div class="result-head">
+              <span>Analiz</span><span class="pill muted">0-1 güven</span>
+            </div>
+            <pre id="audioResult" class="result">Ses analizi çıktısı burada.</pre>
+          </div>
+        </div>
+      </section>
 
-    <section class="card">
-      <h2>Ses / Audio</h2>
-      <form id="audioForm">
-        <label for="audioFile">Ses yükle</label>
-        <input id="audioFile" name="audioFile" type="file" accept="audio/*" />
+      <section class="panel" id="sessionPanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Oturumlar</p>
+              <h2>Özetler ve son konuşmalar</h2>
+            </div>
+            <div class="chip">GET /api/session/&lt;id&gt;</div>
+          </div>
+          <div class="stack">
+            <div class="row">
+              <label for="sessionLookup">Oturum ID</label>
+              <input id="sessionLookup" placeholder="default" />
+            </div>
+            <button id="loadSession">Oturumu getir</button>
+            <div class="result-block">
+              <div class="result-head"><span>Özet</span></div>
+              <pre id="sessionResult" class="result">Henüz sorgu yapılmadı.</pre>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <label for="transcript">Metin ipucu (opsiyonel)</label>
-        <input id="transcript" name="transcript" placeholder="Konu veya duyduğunuz kelimeler" />
+      <section class="panel" id="toolsPanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Araç kataloğu</p>
+              <h2>Grok tarzı hızlı araç kartları</h2>
+            </div>
+            <div class="chip">GET /api/tools</div>
+          </div>
+          <div class="tool-grid" id="toolGrid"></div>
+        </div>
+      </section>
 
-        <button type="submit">Analiz et</button>
-      </form>
-      <pre id="audioResult" class="result">Ses analizi çıktısı burada.</pre>
-    </section>
-  </main>
-
-  <footer>
-    Gelişmiş C++ API ve HTML demo - EDAC AI
-  </footer>
+      <section class="panel" id="diagnosticsPanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Durum</p>
+              <h2>Sağlık, uç noktalar, sayaçlar</h2>
+            </div>
+            <div class="chip">/health & /api/diagnostics</div>
+          </div>
+          <div class="status-grid">
+            <div class="stat">
+              <p class="label">API Sağlık</p>
+              <div class="value" id="healthStatusLarge">...</div>
+            </div>
+            <div class="stat">
+              <p class="label">Oturum Sayısı</p>
+              <div class="value" id="sessionCount">0</div>
+            </div>
+            <div class="stat">
+              <p class="label">Son Ping</p>
+              <div class="value" id="diagTimestamp">-</div>
+            </div>
+          </div>
+          <div class="result-block">
+            <div class="result-head"><span>Ham çıktı</span></div>
+            <pre id="diagnosticsResult" class="result">Bekleniyor...</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <script src="app.js"></script>
 </body>
