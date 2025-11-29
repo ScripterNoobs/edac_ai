@@ -1,3 +1,4 @@
+// POSIX networking headers required for socket-based server
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
