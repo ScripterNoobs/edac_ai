@@ -33,6 +33,16 @@ This repository contains a lightweight C++17 HTTP API and a simple HTML client f
 2. Open `http://localhost:8000` in a browser.
 3. Use the chat box or audio upload form to interact with the running API at `http://localhost:8080`.
 
+## Downloading the code from GitHub
+If you are viewing the repository on GitHub and want to download everything as a ZIP (like the screenshot with the green **Code** button):
+1. Click the **Code** dropdown near the top-right of the file list.
+2. Choose **Download ZIP** to save the full project locally, then unzip it to see the `cpp/` and `html/` folders.
+3. Alternatively, copy the URL from the same **Code** menu and clone via Git:
+   ```bash
+   git clone <repo-url>
+   ```
+   Replace `<repo-url>` with the HTTPS/SSH address shown in the menu.
+
 ## Notes
 - The server is intentionally minimal and self-contained (no external dependencies beyond the standard library and POSIX sockets).
 - Update endpoint URLs in `html/app.js` if you host the API on a different address/port.
