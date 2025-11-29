@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDAC AI - Çok Modlu Asistan</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">EDAC</span>
+      <div>
+        <div class="title">EDAC AI</div>
+        <div class="subtitle">Sesli ve metin tabanlı etkileşim API demosu</div>
+      </div>
+    </div>
+    <div class="status" id="healthStatus">Bekleniyor...</div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Metin / Chat</h2>
+      <form id="chatForm">
+        <label for="sessionId">Oturum ID</label>
+        <input id="sessionId" name="sessionId" placeholder="örn. demo-1" />
+
+        <label for="inputText">Soru veya komut</label>
+        <textarea id="inputText" name="inputText" rows="4" placeholder="Hava nasıl, alarm kur, vb."></textarea>
+
+        <div class="row">
+          <label for="mode">Mod</label>
+          <select id="mode" name="mode">
+            <option value="text">Metin</option>
+            <option value="speech">Ses</option>
+            <option value="control">Kontrol</option>
+          </select>
+          <label class="checkbox">
+            <input type="checkbox" id="stream" name="stream" />
+            <span>Akış (stream)</span>
+          </label>
+        </div>
+
+        <button type="submit">Gönder</button>
+      </form>
+      <pre id="chatResult" class="result">Yanıtlar burada görünecek.</pre>
+    </section>
+
+    <section class="card">
+      <h2>Ses / Audio</h2>
+      <form id="audioForm">
+        <label for="audioFile">Ses yükle</label>
+        <input id="audioFile" name="audioFile" type="file" accept="audio/*" />
+
+        <label for="transcript">Metin ipucu (opsiyonel)</label>
+        <input id="transcript" name="transcript" placeholder="Konu veya duyduğunuz kelimeler" />
+
+        <button type="submit">Analiz et</button>
+      </form>
+      <pre id="audioResult" class="result">Ses analizi çıktısı burada.</pre>
+    </section>
+  </main>
+
+  <footer>
+    Gelişmiş C++ API ve HTML demo - EDAC AI
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
