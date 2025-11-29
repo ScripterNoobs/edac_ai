@@ -6,5 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(edac_api main.cpp)
 
-target_compile_options(edac_api PRIVATE -Wall -Wextra -Wpedantic)
+# Enable sensible warnings on both GCC/Clang and MSVC.
+if(MSVC)
+  target_compile_options(edac_api PRIVATE /W4 /permissive-)
+else()
+  target_compile_options(edac_api PRIVATE -Wall -Wextra -Wpedantic)
+endif()
 
