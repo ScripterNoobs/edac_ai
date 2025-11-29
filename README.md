@@ -3,8 +3,8 @@
 This repository contains a lightweight C++17 HTTP API and a Grok-styled HTML client for a multimodal assistant with text and audio endpoints.
 
 ## Repository layout
-- `cpp/`: C++17 HTTP server exposing chat, audio, health, session summary, diagnostics, and tool catalog endpoints.
-- `html/`: Static web client to exercise chat, audio, session lookup, diagnostics, and tool flows against the API.
+- `cpp/`: C++17 HTTP server exposing chat, audio, health triage, web search, session summary, diagnostics, and tool catalog endpoints.
+- `html/`: Grok-styled web client to exercise chat, audio, health 1.0, web arama, session lookup, diagnostics, and tool flows against the API.
 
 ## Building and running the C++ API
 1. Ensure a C++17 toolchain and CMake (>=3.16) are installed.
@@ -19,8 +19,10 @@ This repository contains a lightweight C++17 HTTP API and a Grok-styled HTML cli
    ./build/edac_api
    ```
 4. Endpoints:
-   - `POST /api/chat` — JSON body with `text`, optional `session_id`, `mode`, and `stream` for structured replies, streaming chunks, intent label, tool suggestions, and recent turns.
+   - `POST /api/chat` — JSON body with `text`, optional `session_id`, `mode`, and `stream` for structured replies, streaming chunks, intent label, tool suggestions, math çözümü, and recent turns.
    - `POST /api/audio/analyze` — JSON body with base64-encoded `audio_b64` and optional `transcript_hint` for preview + confidence response.
+   - `POST /api/search` — JSON body with `query` to fetch synthetic web results (title, URL, snippet, freshness timestamp).
+   - `POST /api/health/diagnose` — JSON body with `symptoms` (metin), optional `duration_days` and `age` for Health 1.0 triage suggestions.
    - `GET /health` — simple readiness probe.
    - `GET /api/session/{id}` — retrieve accumulated summary and recent turns for the session.
    - `GET /api/tools` — static catalog of suggested tools.
@@ -33,7 +35,7 @@ This repository contains a lightweight C++17 HTTP API and a Grok-styled HTML cli
    python3 -m http.server 8000
    ```
 2. Open `http://localhost:8000` in a browser.
-3. Use the chat, audio, oturum (session), araçlar (tools), and durum (diagnostics) panels in the left menu to interact with the running API at `http://localhost:8080`.
+3. Use the chat, audio, Health 1.0 (belirti tarama), web arama, oturum (session), araçlar (tools), and durum (diagnostics) panels in the left menu to interact with the running API at `http://localhost:8080`.
 
 ## Downloading the code from GitHub
 If you are viewing the repository on GitHub and want to download everything as a ZIP (like the screenshot with the green **Code** button):

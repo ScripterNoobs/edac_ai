@@ -15,6 +15,8 @@
     <nav>
       <button class="nav-btn active" data-target="chatPanel">Chat</button>
       <button class="nav-btn" data-target="audioPanel">Audio</button>
+      <button class="nav-btn" data-target="healthPanel">Health 1.0</button>
+      <button class="nav-btn" data-target="searchPanel">Web Araştırma</button>
       <button class="nav-btn" data-target="sessionPanel">Oturumlar</button>
       <button class="nav-btn" data-target="toolsPanel">Araçlar</button>
       <button class="nav-btn" data-target="diagnosticsPanel">Durum</button>
@@ -107,6 +109,64 @@
               <span>Analiz</span><span class="pill muted">0-1 güven</span>
             </div>
             <pre id="audioResult" class="result">Ses analizi çıktısı burada.</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="healthPanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Health 1.0</p>
+              <h2>Belirti analizi ve risk triyajı</h2>
+            </div>
+            <div class="chip">/api/health/diagnose</div>
+          </div>
+          <form id="healthForm" class="stack">
+            <div class="row">
+              <label for="symptoms">Belirtiler</label>
+              <textarea id="symptoms" rows="3" placeholder="ateş, öksürük, halsizlik"></textarea>
+            </div>
+            <div class="row two-cols">
+              <div>
+                <label for="duration">Süre (gün)</label>
+                <input id="duration" type="number" min="0" placeholder="3" />
+              </div>
+              <div>
+                <label for="age">Yaş (opsiyonel)</label>
+                <input id="age" type="number" min="0" placeholder="28" />
+              </div>
+            </div>
+            <button type="submit">Tespit Et</button>
+          </form>
+          <div class="result-block">
+            <div class="result-head">
+              <span>Önerilen durumlar</span><span class="pill muted">Tıbbi tavsiye değildir</span>
+            </div>
+            <pre id="healthResult" class="result">Belirti değerlendirmesi burada belirecek.</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="searchPanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Web</p>
+              <h2>Grok tarzı araştırma</h2>
+            </div>
+            <div class="chip">/api/search</div>
+          </div>
+          <form id="searchForm" class="stack">
+            <div class="row">
+              <label for="searchQuery">Sorgu</label>
+              <input id="searchQuery" placeholder="kuantum hesaplama nedir" />
+            </div>
+            <button type="submit">Ara</button>
+          </form>
+          <div class="result-block">
+            <div class="result-head"><span>Sonuçlar</span><span class="pill muted">Canlı taklit</span></div>
+            <pre id="searchResult" class="result">Araştırma sonuçları burada.</pre>
           </div>
         </div>
       </section>

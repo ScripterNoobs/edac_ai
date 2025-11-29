@@ -10,6 +10,7 @@
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -243,12 +244,24 @@ class InferenceEngine {
     std::string detect_intent(const std::string &text) const {
         if (text.find("ses") != std::string::npos || text.find("audio") != std::string::npos) return "speech";
         if (text.find("yardım") != std::string::npos) return "support";
+        if (text.find("araştır") != std::string::npos || text.find("ara") != std::string::npos ||
+            text.find("web") != std::string::npos)
+            return "search";
+        if (is_math_expression(text)) return "math";
         if (text.find("hava") != std::string::npos) return "weather";
         if (text.find("kod") != std::string::npos || text.find("api") != std::string::npos) return "development";
         return "general";
     }
 
     std::string respond(const std::string &text, const std::string &mode) const {
+        if (is_math_expression(text)) {
+            const auto result = evaluate_expression(text);
+            if (result.has_value()) {
+                std::ostringstream math_oss;
+                math_oss << "[math] " << text << " = " << *result;
+                return math_oss.str();
+            }
+        }
         std::ostringstream oss;
         oss << "[" << mode << "] " << text << " -> analitik değerlendirme: ";
         if (text.size() > 80) {
@@ -273,6 +286,8 @@ class InferenceEngine {
         if (intent == "weather") return {"get_weather", "forecast_5day"};
         if (intent == "speech") return {"transcribe", "classify_audio"};
         if (intent == "development") return {"run_tests", "deploy_preview", "lint_source"};
+        if (intent == "search") return {"web_search", "crawl"};
+        if (intent == "math") return {"calculator"};
         return {"search_docs", "semantic_answer"};
     }
 
@@ -281,6 +296,8 @@ class InferenceEngine {
         if (intent == "speech") return "Ses analizi ve komut çıkarımı";
         if (intent == "development") return "Kod, API ve hata ayıklama";
         if (intent == "support") return "Destek ve yönlendirme";
+        if (intent == "math") return "Hızlı hesaplama";
+        if (intent == "search") return "Web araştırma";
         return "Genel sohbet";
     }
 
@@ -294,11 +311,105 @@ class InferenceEngine {
         }
         return oss.str();
     }
+
+    struct Disease {
+        std::string name;
+        std::vector<std::string> symptoms;
+        std::string risk;
+        std::string guidance;
+    };
+
+    std::vector<Disease> catalog() const {
+        return {
+            {"Grip", {"ateş", "öksürük", "boğaz", "halsizlik"}, "orta", "Bol sıvı, istirahat, gerekirse hekim"},
+            {"Migren", {"baş ağrısı", "ışık", "ses", "bulantı"}, "orta", "Karanlık ortam, tetikleyici kaçınma"},
+            {"Tip-2 Diyabet", {"susuzluk", "sık idrara çıkma", "bulanık", "yorgunluk"}, "yüksek", "Kan şekeri ölçümü, doktor"},
+            {"Hipertansiyon", {"baş dönmesi", "ense ağrısı", "nefes darlığı"}, "yüksek", "Kan basıncı takibi, kardiyoloji"},
+            {"COVID-19", {"koku kaybı", "tat kaybı", "öksürük", "ateş"}, "yüksek", "Test, izolasyon, hekim"},
+            {"Demir Eksikliği", {"yorgunluk", "solukluk", "nefes", "çarpıntı"}, "orta", "Kan tahlili, takviye için doktor"},
+            {"Alerji", {"kaşıntı", "hapşırma", "göz sulanması", "döküntü"}, "düşük", "Antihistaminik danışın"},
+            {"Astım", {"nefes", "hırıltı", "göğüs sıkışması", "öksürük"}, "yüksek", "İnhaler kullanımı, hekim takibi"},
+            {"Gıda Zehirlenmesi", {"bulantı", "kusma", "ishal", "karın ağrısı"}, "orta", "Sıvı alımı, hekim"},
+            {"Anksiyete", {"çarpıntı", "kaygı", "uyku", "terleme"}, "orta", "Nefes egzersizi, psikolojik destek"},
+        };
+    }
+
+    std::vector<std::string> match_symptoms(const std::string &input) const {
+        std::vector<std::string> matches;
+        auto diseases = catalog();
+        for (const auto &d : diseases) {
+            int score = 0;
+            for (const auto &sym : d.symptoms) {
+                if (input.find(sym) != std::string::npos) score++;
+            }
+            if (score > 0) {
+                std::ostringstream oss;
+                oss << d.name << " (skor:" << score << ", risk:" << d.risk << ")";
+                matches.push_back(oss.str());
+            }
+        }
+        if (matches.empty()) matches.push_back("Bulgu eşleşmesi yok, klinik değerlendirme gerek");
+        return matches;
+    }
+
+    bool is_math_expression(const std::string &text) const {
+        bool has_digit = false;
+        for (char c : text) {
+            if (std::isdigit(static_cast<unsigned char>(c))) has_digit = true;
+            if (c == '+' || c == '-' || c == '*' || c == '/') return has_digit;
+        }
+        return false;
+    }
+
+    std::optional<double> evaluate_expression(const std::string &text) const {
+        double a = 0, b = 0;
+        char op = 0;
+        std::istringstream iss(text);
+        if (!(iss >> a)) return std::nullopt;
+        iss >> op;
+        if (!(iss >> b)) return std::nullopt;
+        switch (op) {
+            case '+':
+                return a + b;
+            case '-':
+                return a - b;
+            case '*':
+                return a * b;
+            case '/':
+                if (b == 0) return std::nullopt;
+                return a / b;
+            default:
+                return std::nullopt;
+        }
+    }
 };
 
 void handle_health(int client_fd) {
     std::string body = "{\"status\":\"ok\",\"timestamp\":\"" + now_iso8601() + "\"}";
     write_response(client_fd, 200, body);
+}
+
+void handle_search(int client_fd, const HttpRequest &req) {
+    const std::string query = find_json_value(req.body, "query");
+    if (query.empty()) {
+        write_response(client_fd, 400, "{\"error\":\"query zorunlu\"}");
+        return;
+    }
+    std::vector<std::pair<std::string, std::string>> sources = {
+        {"Docs", "https://example.com/docs"},
+        {"Blog", "https://example.com/blog"},
+        {"Research", "https://example.com/research"},
+    };
+    std::ostringstream oss;
+    oss << "{\"query\":\"" << json_escape(query) << "\",\"results\":[";
+    for (size_t i = 0; i < sources.size(); ++i) {
+        if (i > 0) oss << ",";
+        oss << "{\"title\":\"" << json_escape(sources[i].first + " sonuçları") << "\",";
+        oss << "\"url\":\"" << json_escape(sources[i].second) << "\",";
+        oss << "\"snippet\":\"" << json_escape("\"" + query + "\" terimi için yapay sonuç") << "\"}";
+    }
+    oss << "],\"freshness\":\"" << now_iso8601() << "\"}";
+    write_response(client_fd, 200, oss.str());
 }
 
 void handle_chat(int client_fd, const HttpRequest &req, InferenceEngine &engine, SessionStore &store) {
@@ -377,6 +488,26 @@ void handle_audio(int client_fd, const HttpRequest &req, InferenceEngine &engine
     write_response(client_fd, 200, oss.str());
 }
 
+void handle_health_diagnose(int client_fd, const HttpRequest &req, InferenceEngine &engine) {
+    const std::string symptoms = find_json_value(req.body, "symptoms");
+    if (symptoms.empty()) {
+        write_response(client_fd, 400, "{\"error\":\"symptoms zorunlu\"}");
+        return;
+    }
+    const std::string duration = find_json_value(req.body, "duration_days");
+    auto matches = engine.match_symptoms(symptoms);
+    std::ostringstream oss;
+    oss << "{\"layer\":\"health1.0\",\"symptoms\":\"" << json_escape(symptoms) << "\",";
+    oss << "\"duration_days\":\"" << json_escape(duration) << "\",";
+    oss << "\"predictions\":[";
+    for (size_t i = 0; i < matches.size(); ++i) {
+        if (i > 0) oss << ",";
+        oss << "\"" << json_escape(matches[i]) << "\"";
+    }
+    oss << "],\"note\":\"Klinik değerlendirme gereklidir; bu çıktı triyaj amaçlıdır.\"}";
+    write_response(client_fd, 200, oss.str());
+}
+
 void handle_session_summary(int client_fd, const std::string &session_id, SessionStore &store) {
     if (session_id.empty()) {
         write_response(client_fd, 400, "{\"error\":\"session_id eksik\"}");
@@ -433,8 +564,12 @@ void handle_client(int client_fd, InferenceEngine &engine, SessionStore &store) 
         handle_diagnostics(client_fd, store);
     } else if (req.method == "POST" && req.path == "/api/chat") {
         handle_chat(client_fd, req, engine, store);
+    } else if (req.method == "POST" && req.path == "/api/search") {
+        handle_search(client_fd, req);
     } else if (req.method == "POST" && req.path == "/api/audio/analyze") {
         handle_audio(client_fd, req, engine, store);
+    } else if (req.method == "POST" && req.path == "/api/health/diagnose") {
+        handle_health_diagnose(client_fd, req, engine);
     } else {
         write_response(client_fd, 404, "{\"error\":\"bulunamadı\"}");
     }

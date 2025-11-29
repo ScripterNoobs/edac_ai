@@ -6,6 +6,10 @@ const chatResult = document.getElementById('chatResult');
 const audioForm = document.getElementById('audioForm');
 const audioResult = document.getElementById('audioResult');
 const intentLabel = document.getElementById('intentLabel');
+const searchForm = document.getElementById('searchForm');
+const searchResult = document.getElementById('searchResult');
+const healthForm = document.getElementById('healthForm');
+const healthResult = document.getElementById('healthResult');
 const toolGrid = document.getElementById('toolGrid');
 const sessionResult = document.getElementById('sessionResult');
 const diagnosticsResult = document.getElementById('diagnosticsResult');
@@ -96,6 +100,52 @@ audioForm.addEventListener('submit', async (event) => {
     audioResult.textContent = JSON.stringify(data, null, 2);
   } catch (err) {
     audioResult.textContent = `Hata: ${err.message}`;
+  }
+});
+
+searchForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  searchResult.textContent = 'Aranıyor...';
+  const query = document.getElementById('searchQuery').value;
+  if (!query) {
+    searchResult.textContent = 'Lütfen bir sorgu girin';
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/api/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) throw new Error('Arama başarısız');
+    const data = await res.json();
+    searchResult.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    searchResult.textContent = err.message;
+  }
+});
+
+healthForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  healthResult.textContent = 'Belirtiler değerlendiriliyor...';
+  const symptoms = document.getElementById('symptoms').value;
+  if (!symptoms) {
+    healthResult.textContent = 'Belirti giriniz';
+    return;
+  }
+  const duration_days = document.getElementById('duration').value;
+  const age = document.getElementById('age').value;
+  try {
+    const res = await fetch(`${API_BASE}/api/health/diagnose`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symptoms, duration_days, age }),
+    });
+    if (!res.ok) throw new Error('Sağlık değerlendirmesi başarısız');
+    const data = await res.json();
+    healthResult.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    healthResult.textContent = err.message;
   }
 });
 
