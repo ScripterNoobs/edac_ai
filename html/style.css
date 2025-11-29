@@ -202,6 +202,68 @@ button:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(16,185,
 .tool-card .name { font-weight: 700; }
 .tool-card .desc { color: var(--muted); font-size: 14px; }
 
+.subscription-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.plan-card {
+  background: #0f172a;
+  border: 1px solid #1f2937;
+  border-radius: 1rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.plan-card.popular {
+  border-color: #60a5fa;
+  box-shadow: 0 10px 35px rgba(96, 165, 250, 0.2);
+}
+
+.plan-card .price {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.plan-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.plan-card li::before {
+  content: '• ';
+  color: #22c55e;
+}
+
+.plan-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 0.6rem;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: auto;
+}
+
+.plan-btn:hover {
+  background: #1d4ed8;
+}
+
 .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; }
 
 .stat { background: #0b1628; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
@@ -214,4 +276,5 @@ button:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(16,185,
   nav { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
   .content { padding: 22px; }
   header { flex-direction: column; }
+  .subscription-layout { grid-template-columns: 1fr; }
 }

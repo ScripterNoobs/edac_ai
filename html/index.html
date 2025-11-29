@@ -17,6 +17,7 @@
       <button class="nav-btn" data-target="audioPanel">Audio</button>
       <button class="nav-btn" data-target="healthPanel">Health 1.0</button>
       <button class="nav-btn" data-target="searchPanel">Web Araştırma</button>
+      <button class="nav-btn" data-target="subscriptionPanel">Hesap & Planlar</button>
       <button class="nav-btn" data-target="sessionPanel">Oturumlar</button>
       <button class="nav-btn" data-target="toolsPanel">Araçlar</button>
       <button class="nav-btn" data-target="diagnosticsPanel">Durum</button>
@@ -166,7 +167,51 @@
           </form>
           <div class="result-block">
             <div class="result-head"><span>Sonuçlar</span><span class="pill muted">Canlı taklit</span></div>
-            <pre id="searchResult" class="result">Araştırma sonuçları burada.</pre>
+          <pre id="searchResult" class="result">Araştırma sonuçları burada.</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="subscriptionPanel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Hesap</p>
+              <h2>Plan seç, abonelik yönet</h2>
+            </div>
+            <div class="chip">/api/subscriptions</div>
+          </div>
+          <div class="subscription-layout">
+            <div class="stack">
+              <form id="accountForm" class="stack">
+                <div class="row">
+                  <label for="accountName">İsim</label>
+                  <input id="accountName" placeholder="Ada Lovelace" />
+                </div>
+                <div class="row">
+                  <label for="accountEmail">E-posta</label>
+                  <input id="accountEmail" type="email" placeholder="ada@example.com" />
+                </div>
+                <div class="row">
+                  <label for="planSelect">Plan</label>
+                  <select id="planSelect"></select>
+                </div>
+                <button type="submit">Hesap Oluştur</button>
+              </form>
+              <form id="planForm" class="stack">
+                <div class="row">
+                  <label for="accountId">Hesap ID</label>
+                  <input id="accountId" type="number" placeholder="1" />
+                </div>
+                <div class="row">
+                  <label for="planSelectUpdate">Planı Değiştir</label>
+                  <select id="planSelectUpdate"></select>
+                </div>
+                <button type="submit">Aboneliği Güncelle</button>
+              </form>
+              <pre id="accountResult" class="result">Hesap ve abonelik yanıtı burada.</pre>
+            </div>
+            <div class="plan-grid" id="subscriptionGrid"></div>
           </div>
         </div>
       </section>
@@ -224,6 +269,10 @@
             <div class="stat">
               <p class="label">Oturum Sayısı</p>
               <div class="value" id="sessionCount">0</div>
+            </div>
+            <div class="stat">
+              <p class="label">Hesap Sayısı</p>
+              <div class="value" id="accountCount">0</div>
             </div>
             <div class="stat">
               <p class="label">Son Ping</p>

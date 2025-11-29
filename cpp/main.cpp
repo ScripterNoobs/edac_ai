@@ -239,6 +239,62 @@ class SessionStore {
     std::unordered_map<std::string, SessionData> sessions_;
 };
 
+struct Plan {
+    std::string id;
+    std::string name;
+    std::string price;
+    std::vector<std::string> features;
+    bool popular = false;
+};
+
+struct Account {
+    int id = 0;
+    std::string name;
+    std::string email;
+    std::string plan_id;
+    std::string created_at;
+};
+
+class AccountStore {
+   public:
+    Account create(const std::string &name, const std::string &email, const std::string &plan_id) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        Account acc;
+        acc.id = ++counter_;
+        acc.name = name;
+        acc.email = email;
+        acc.plan_id = plan_id.empty() ? "basic" : plan_id;
+        acc.created_at = now_iso8601();
+        accounts_[acc.id] = acc;
+        return acc;
+    }
+
+    std::optional<Account> get(int id) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = accounts_.find(id);
+        if (it == accounts_.end()) return std::nullopt;
+        return it->second;
+    }
+
+    bool update_plan(int id, const std::string &plan_id) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = accounts_.find(id);
+        if (it == accounts_.end()) return false;
+        it->second.plan_id = plan_id;
+        return true;
+    }
+
+    size_t size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return accounts_.size();
+    }
+
+   private:
+    mutable std::mutex mutex_;
+    int counter_ = 0;
+    std::unordered_map<int, Account> accounts_;
+};
+
 class InferenceEngine {
    public:
     std::string detect_intent(const std::string &text) const {
@@ -538,16 +594,84 @@ void handle_tools(int client_fd) {
     write_response(client_fd, 200, payload);
 }
 
-void handle_diagnostics(int client_fd, SessionStore &store) {
+std::vector<Plan> subscription_plans() {
+    return {
+        {"basic", "Basic", "$0", {"Chat modelleri", "Sınırlı context", "Ses erişimi"}, false},
+        {"super", "SuperGrok", "$30.00", {"Grok 4.1 erişimi", "Uzun bağlam", "Öncelikli ses", "Tüm Basic"}, true},
+        {"heavy", "SuperGrok Heavy", "$300.00", {"Grok 4 Heavy önizleme", "En uzun bağlam", "Tüm SuperGrok"}, false},
+    };
+}
+
+void handle_subscriptions(int client_fd) {
+    auto plans = subscription_plans();
+    std::ostringstream oss;
+    oss << "{\"plans\":[";
+    for (size_t i = 0; i < plans.size(); ++i) {
+        if (i > 0) oss << ",";
+        oss << "{\"id\":\"" << plans[i].id << "\",";
+        oss << "\"name\":\"" << json_escape(plans[i].name) << "\",";
+        oss << "\"price\":\"" << plans[i].price << " USD/month\",";
+        oss << "\"popular\":" << (plans[i].popular ? "true" : "false") << ",";
+        oss << "\"features\":[";
+        for (size_t j = 0; j < plans[i].features.size(); ++j) {
+            if (j > 0) oss << ",";
+            oss << "\"" << json_escape(plans[i].features[j]) << "\"";
+        }
+        oss << "]}";
+    }
+    oss << "]}";
+    write_response(client_fd, 200, oss.str());
+}
+
+void handle_account_create(int client_fd, const HttpRequest &req, AccountStore &accounts) {
+    const std::string name = find_json_value(req.body, "name");
+    const std::string email = find_json_value(req.body, "email");
+    const std::string plan = find_json_value(req.body, "plan_id");
+    if (name.empty() || email.empty()) {
+        write_response(client_fd, 400, "{\"error\":\"name ve email zorunlu\"}");
+        return;
+    }
+    Account acc = accounts.create(name, email, plan);
+    std::ostringstream oss;
+    oss << "{\"account_id\":" << acc.id << ",";
+    oss << "\"plan_id\":\"" << acc.plan_id << "\",";
+    oss << "\"email\":\"" << json_escape(acc.email) << "\",";
+    oss << "\"name\":\"" << json_escape(acc.name) << "\",";
+    oss << "\"created_at\":\"" << acc.created_at << "\"}";
+    write_response(client_fd, 200, oss.str());
+}
+
+void handle_subscription_select(int client_fd, const HttpRequest &req, AccountStore &accounts) {
+    const std::string plan_id = find_json_value(req.body, "plan_id");
+    const std::string account_id_val = find_json_value(req.body, "account_id");
+    if (plan_id.empty() || account_id_val.empty()) {
+        write_response(client_fd, 400, "{\"error\":\"plan_id ve account_id zorunlu\"}");
+        return;
+    }
+    int account_id = std::stoi(account_id_val);
+    if (!accounts.update_plan(account_id, plan_id)) {
+        write_response(client_fd, 404, "{\"error\":\"hesap bulunamadı\"}");
+        return;
+    }
+    auto acc = accounts.get(account_id);
+    std::ostringstream oss;
+    oss << "{\"account_id\":" << account_id << ",";
+    oss << "\"plan_id\":\"" << plan_id << "\",";
+    oss << "\"updated_at\":\"" << now_iso8601() << "\"}";
+    write_response(client_fd, 200, oss.str());
+}
+
+void handle_diagnostics(int client_fd, SessionStore &store, AccountStore &accounts) {
     std::ostringstream oss;
     oss << "{\"status\":\"ok\",\"uptime_hint\":\"hafif\",";
     oss << "\"sessions\":" << store.session_ids().size() << ",";
-    oss << "\"endpoints\":[\"/api/chat\",\"/api/audio/analyze\",\"/api/session/{id}\",\"/api/tools\"],";
+    oss << "\"endpoints\":[\"/api/chat\",\"/api/audio/analyze\",\"/api/session/{id}\",\"/api/tools\",\"/api/subscriptions\"],";
+    oss << "\"accounts\":" << accounts.size() << ",";
     oss << "\"timestamp\":\"" << now_iso8601() << "\"}";
     write_response(client_fd, 200, oss.str());
 }
 
-void handle_client(int client_fd, InferenceEngine &engine, SessionStore &store) {
+void handle_client(int client_fd, InferenceEngine &engine, SessionStore &store, AccountStore &accounts) {
     HttpRequest req;
     if (!read_http_request(client_fd, req)) {
         close(client_fd);
@@ -561,7 +685,13 @@ void handle_client(int client_fd, InferenceEngine &engine, SessionStore &store) 
     } else if (req.method == "GET" && req.path.rfind("/api/session/", 0) == 0) {
         handle_session_summary(client_fd, req.path.substr(std::string("/api/session/").size()), store);
     } else if (req.method == "GET" && req.path == "/api/diagnostics") {
-        handle_diagnostics(client_fd, store);
+        handle_diagnostics(client_fd, store, accounts);
+    } else if (req.method == "GET" && req.path == "/api/subscriptions") {
+        handle_subscriptions(client_fd);
+    } else if (req.method == "POST" && req.path == "/api/account/create") {
+        handle_account_create(client_fd, req, accounts);
+    } else if (req.method == "POST" && req.path == "/api/subscriptions/select") {
+        handle_subscription_select(client_fd, req, accounts);
     } else if (req.method == "POST" && req.path == "/api/chat") {
         handle_chat(client_fd, req, engine, store);
     } else if (req.method == "POST" && req.path == "/api/search") {
@@ -625,13 +755,14 @@ class Server {
 
    private:
     void dispatch(int client_fd) {
-        handle_client(client_fd, engine_, store_);
+        handle_client(client_fd, engine_, store_, accounts_);
     }
 
     int port_;
     bool running_ = true;
     InferenceEngine engine_;
     SessionStore store_;
+    AccountStore accounts_;
 };
 
 }  // namespace

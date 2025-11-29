@@ -11,10 +11,17 @@ const searchResult = document.getElementById('searchResult');
 const healthForm = document.getElementById('healthForm');
 const healthResult = document.getElementById('healthResult');
 const toolGrid = document.getElementById('toolGrid');
+const subscriptionGrid = document.getElementById('subscriptionGrid');
+const accountForm = document.getElementById('accountForm');
+const planForm = document.getElementById('planForm');
+const accountResult = document.getElementById('accountResult');
+const planSelect = document.getElementById('planSelect');
+const planSelectUpdate = document.getElementById('planSelectUpdate');
 const sessionResult = document.getElementById('sessionResult');
 const diagnosticsResult = document.getElementById('diagnosticsResult');
 const healthStatusLarge = document.getElementById('healthStatusLarge');
 const sessionCount = document.getElementById('sessionCount');
+const accountCount = document.getElementById('accountCount');
 const diagTimestamp = document.getElementById('diagTimestamp');
 
 async function checkHealth() {
@@ -175,9 +182,46 @@ async function fetchDiagnostics() {
     const data = await res.json();
     diagnosticsResult.textContent = JSON.stringify(data, null, 2);
     sessionCount.textContent = data.sessions;
+    if (accountCount) accountCount.textContent = data.accounts ?? 0;
     diagTimestamp.textContent = data.timestamp;
   } catch (err) {
     diagnosticsResult.textContent = err.message;
+  }
+}
+
+async function fetchSubscriptions() {
+  try {
+    const res = await fetch(`${API_BASE}/api/subscriptions`);
+    if (!res.ok) throw new Error('Planlar alınamadı');
+    const data = await res.json();
+    const options = data.plans
+      .map((p) => `<option value="${p.id}">${p.name} (${p.price})</option>`)
+      .join('');
+    planSelect.innerHTML = options;
+    planSelectUpdate.innerHTML = options;
+    subscriptionGrid.innerHTML = data.plans
+      .map(
+        (p) => `
+        <div class="plan-card ${p.popular ? 'popular' : ''}">
+          <div class="pill">${p.name}</div>
+          <div class="price">${p.price}<small>/mo</small></div>
+          <ul>
+            ${p.features.map((f) => `<li>${f}</li>`).join('')}
+          </ul>
+          <button type="button" data-plan="${p.id}" class="plan-btn">${p.popular ? 'Upgrade' : 'Seç'}</button>
+        </div>`
+      )
+      .join('');
+
+    document.querySelectorAll('.plan-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        planSelect.value = btn.dataset.plan;
+        planSelectUpdate.value = btn.dataset.plan;
+        accountResult.textContent = `Plan seçildi: ${btn.dataset.plan}. Formdan gönderin.`;
+      });
+    });
+  } catch (err) {
+    subscriptionGrid.innerHTML = `<div class="plan-card">${err.message}</div>`;
   }
 }
 
@@ -198,6 +242,52 @@ document.getElementById('loadSession').addEventListener('click', async () => {
   await fetchSession(id);
 });
 
+accountForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  accountResult.textContent = 'Hesap oluşturuluyor...';
+  const name = document.getElementById('accountName').value;
+  const email = document.getElementById('accountEmail').value;
+  if (!name || !email) {
+    accountResult.textContent = 'İsim ve e-posta zorunlu';
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/api/account/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, plan_id: planSelect.value }),
+    });
+    if (!res.ok) throw new Error('Hesap oluşturulamadı');
+    const data = await res.json();
+    accountResult.textContent = JSON.stringify(data, null, 2);
+    document.getElementById('accountId').value = data.account_id;
+  } catch (err) {
+    accountResult.textContent = err.message;
+  }
+});
+
+planForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  accountResult.textContent = 'Abonelik güncelleniyor...';
+  const account_id = document.getElementById('accountId').value;
+  if (!account_id) {
+    accountResult.textContent = 'Önce hesap ID girin';
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/api/subscriptions/select`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id, plan_id: planSelectUpdate.value }),
+    });
+    if (!res.ok) throw new Error('Güncelleme hatası');
+    const data = await res.json();
+    accountResult.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    accountResult.textContent = err.message;
+  }
+});
+
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
@@ -212,3 +302,4 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
 checkHealth();
 fetchTools();
 fetchDiagnostics();
+fetchSubscriptions();
