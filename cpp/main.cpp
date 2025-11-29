@@ -1,11 +1,23 @@
+#ifdef _WIN32
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#include <WinSock2.h>
+#include <WS2tcpip.h>
+#include <io.h>
+#pragma comment(lib, "Ws2_32.lib")
+using socklen_t = int;
+#define CLOSESOCKET closesocket
+#else
 // POSIX networking headers required for socket-based server
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#define CLOSESOCKET close
+#endif
 
 #include <chrono>
 #include <cctype>
+#include <cerrno>
 #include <csignal>
 #include <cstring>
 #include <iostream>
@@ -27,7 +39,11 @@ std::string now_iso8601() {
     auto now = std::chrono::system_clock::now();
     std::time_t tt = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
+#ifdef _WIN32
+    gmtime_s(&tm, &tt);
+#else
     gmtime_r(&tt, &tm);
+#endif
     char buf[32];
     std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
     return buf;
@@ -675,7 +691,7 @@ void handle_diagnostics(int client_fd, SessionStore &store, AccountStore &accoun
 void handle_client(int client_fd, InferenceEngine &engine, SessionStore &store, AccountStore &accounts) {
     HttpRequest req;
     if (!read_http_request(client_fd, req)) {
-        close(client_fd);
+        CLOSESOCKET(client_fd);
         return;
     }
 
@@ -704,7 +720,7 @@ void handle_client(int client_fd, InferenceEngine &engine, SessionStore &store, 
     } else {
         write_response(client_fd, 404, "{\"error\":\"bulunamadı\"}");
     }
-    close(client_fd);
+    CLOSESOCKET(client_fd);
 }
 
 class Server {
@@ -719,7 +735,7 @@ class Server {
         }
 
         int opt = 1;
-        setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
 
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
@@ -727,12 +743,12 @@ class Server {
         addr.sin_port = htons(port_);
         if (bind(server_fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) < 0) {
             std::perror("bind");
-            close(server_fd);
+            CLOSESOCKET(server_fd);
             return;
         }
         if (listen(server_fd, kBacklog) < 0) {
             std::perror("listen");
-            close(server_fd);
+            CLOSESOCKET(server_fd);
             return;
         }
 
@@ -749,7 +765,7 @@ class Server {
             }
             std::thread(&Server::dispatch, this, client_fd).detach();
         }
-        close(server_fd);
+        CLOSESOCKET(server_fd);
     }
 
     void stop() { running_ = false; }
@@ -775,11 +791,21 @@ void signal_handler(int) {
 }
 
 int main() {
+#ifdef _WIN32
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup başarısız" << std::endl;
+        return 1;
+    }
+#endif
     Server server(kDefaultPort);
     g_server = &server;
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
     server.run();
+#ifdef _WIN32
+    WSACleanup();
+#endif
     return 0;
 }
 
